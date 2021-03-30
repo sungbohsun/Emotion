@@ -40,7 +40,7 @@ class PMEdataset(Dataset):
         soundFormatted[:int(self.sr*self.max_sec/self.hop_len)] = soundData[::self.hop_len] #take every fifth sample of soundData
         soundFormatted = soundFormatted.permute(1, 0)
         
-        return torch.tensor(soundFormatted[0],dtype=torch.long), self.labels[index]-1
+        return torch.tensor(soundFormatted[0],dtype=torch.float), self.labels[index]-1
             
     
     def __len__(self):
@@ -82,7 +82,7 @@ class Q4dataset(Dataset):
         soundFormatted[:int(self.sr*self.max_sec/self.hop_len)] = soundData[::self.hop_len] #take every fifth sample of soundData
         soundFormatted = soundFormatted.permute(1, 0)
         
-        return torch.tensor(soundFormatted[0],dtype=torch.long), self.labels[index]-1
+        return torch.tensor(soundFormatted[0],dtype=torch.float), self.labels[index]-1
             
     
     def __len__(self):
@@ -124,7 +124,7 @@ class DEAMdataset(Dataset):
         soundFormatted[:int(self.sr*self.max_sec/self.hop_len)] = soundData[::self.hop_len] #take every fifth sample of soundData
         soundFormatted = soundFormatted.permute(1, 0)
         
-        return torch.tensor(soundFormatted[0],dtype=torch.long), self.labels[index]-1
+        return torch.tensor(soundFormatted[0],dtype=torch.float), self.labels[index]-1
             
     
     def __len__(self):
@@ -170,7 +170,7 @@ class PMEmix_dataset(Dataset):
         label = torch.Tensor(self.df[self.df['song_id'] == int(self.ids[index])]['label'].values)[0]
         lyrics = torch.Tensor(self.tokenizer.encode(self.dic_lyrics[self.ids[index]] ,add_special_tokens=True, padding='max_length', max_length=512)[:512])
         
-        return torch.tensor(soundFormatted[0],dtype=torch.long), torch.tensor(lyrics,dtype=torch.long),torch.tensor(label,dtype=torch.long)-1
+        return torch.tensor(soundFormatted[0],dtype=torch.float), torch.tensor(lyrics,dtype=torch.long),torch.tensor(label,dtype=torch.long)-1
     
         
     def __len__(self):
@@ -217,7 +217,7 @@ class Q4mix_dataset(Dataset):
         label = torch.Tensor(self.df[self.df['song_id'] == self.ids[index]]['label'].values)[0]
         lyrics = torch.Tensor(self.tokenizer.encode(self.dic_lyrics[self.ids[index]] ,add_special_tokens=True, padding='max_length', max_length=512)[:512])
         
-        return torch.tensor(soundFormatted[0],dtype=torch.long), torch.tensor(lyrics,dtype=torch.long),torch.tensor(label,dtype=torch.long)-1
+        return torch.tensor(soundFormatted[0],dtype=torch.float), torch.tensor(lyrics,dtype=torch.long),torch.tensor(label,dtype=torch.long)-1
     
         
     def __len__(self):

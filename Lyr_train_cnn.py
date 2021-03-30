@@ -18,7 +18,7 @@ def train_class(model,epoch):
     t_loss = 0
     all_prediction = []
     all_label = []
-    for batch_idx, (data, target) in tqdm(enumerate(train_loader),total=len(train_loader)):
+    for batch_idx, (data,lyrics,target) in tqdm(enumerate(train_loader),total=len(train_loader)):
         optimizer.zero_grad()
         data = data.to(device)
         target = target.to(device)
@@ -40,10 +40,10 @@ def test_class(model,epoch):
     t_loss = 0
     all_prediction = []
     all_label = []
-    for data, target in test_loader:
+    for data,lyrics,target in test_loader:
         data = data.to(device)
         target = target.to(device)
-        output = model(data)['clipwise_output']
+        output = model(data.to(device))['clipwise_output']
         loss = loss_fn(output, target) #the loss functions expects a batchSizex10 input
         t_loss += loss.detach().cpu()
         all_prediction.extend(output.argmax(axis=1).cpu().detach().numpy())
@@ -67,22 +67,31 @@ if __name__ == '__main__':
 
     if  args.size == 's': 
 
-        data_size_PME  = 767//50
-        data_size_Q4   = 900//50
-        data_size_DEAM = 1802//50
+        data_size_PME  = 629//50
+        data_size_Q4   = 479//50
+        #data_size_DEAM = 1802//50
     
     elif args.size == 'm': 
         
-        data_size_PME  = 767//10
-        data_size_Q4   = 900//10
-        data_size_DEAM = 1802//10
+        data_size_PME  = 629//10
+        data_size_Q4   = 479//10
+        #data_size_DEAM = 1802//10
     
     elif args.size == 'l': 
         
-        data_size_PME  = 767
-        data_size_Q4   = 900
-        data_size_DEAM = 1802
+        data_size_PME  = 629 
+        data_size_Q4   = 479
+        #data_size_DEAM = 1802
         
+    if args.model == 'BERT':
+        pretrain_tk = 'bert-base-uncased'
+    
+    elif args.model == 'ALBERT':
+        pretrain_tk = 'albert-base-v2'
+        
+    else:
+        print('--- use Cnn model without lyrics ---')
+        pretrain_tk = 'bert-base-uncased'
         
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     #device = 'cpu'
@@ -90,28 +99,23 @@ if __name__ == '__main__':
     test_sets  = []
     
     if  args.data.find('p')>=0:
-        print('-------- load PME')
+        print('-------- load Lyr_PME')
         train_index,test_index = train_test_split(list(range(data_size_PME)),test_size=0.2,random_state=7777)
-        PME_train_set = PMEdataset(train_index)
-        PME_test_set = PMEdataset(test_index)
+        PME_train_set = PMEmix_dataset(train_index,pretrain_tk)
+        PME_test_set = PMEmix_dataset(test_index,pretrain_tk)
         train_sets.append(PME_train_set)
         test_sets.append(PME_test_set)
     
     if  args.data.find('q')>=0:
-        print('-------- load Q4')
+        print('-------- load Lyr_Q4')
         train_index,test_index = train_test_split(list(range(data_size_Q4)),test_size=0.2,random_state=7777)
-        Q4_train_set = Q4dataset(train_index)
-        Q4_test_set = Q4dataset(test_index)
+        Q4_train_set = Q4mix_dataset(train_index,pretrain_tk)
+        Q4_test_set = Q4mix_dataset(test_index,pretrain_tk)
         train_sets.append(Q4_train_set)
         test_sets.append(Q4_test_set)
     
     if  args.data.find('d')>=0:
-        print('-------- load DEAM')
-        train_index,test_index = train_test_split(list(range(data_size_DEAM)),test_size=0.2,random_state=7777)
-        DEAM_train_set = DEAMdataset(train_index)
-        DEAM_test_set = DEAMdataset(test_index)
-        train_sets.append(DEAM_train_set)   
-        test_sets.append(DEAM_test_set)
+        print('-------- DEAM not lyrics data')
     
     train_set = ConcatDataset(train_sets)
     test_set = ConcatDataset(test_sets)
@@ -131,7 +135,7 @@ if __name__ == '__main__':
     model = eval(args.model+'(**parms)')   
     model.to(device)
     wandb.init(tags=[args.model,args.size,str(args.bt)])
-    save_path = '{}_{}_{}_{}'.format(args.model,args.size,str(args.bt),args.data)
+    save_path = '{}_{}_{}_Lyr_{}'.format(args.model,args.size,str(args.bt),args.data)
     wandb.run.name = save_path
     wandb.watch(model)
 

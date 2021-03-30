@@ -1,6 +1,13 @@
 import torch.nn as nn
 from transformers import BertForSequenceClassification,AlbertForSequenceClassification
 
+class layer_pass(nn.Module):
+    def __init__(self):
+        super(layer_pass, self).__init__()
+        
+    def forward(self, x):
+        return x
+
 
 class BERT(nn.Module):
 
@@ -16,7 +23,7 @@ class BERT(nn.Module):
 class ALBERT(nn.Module):
 
     def __init__(self):
-        super(BERT, self).__init__()
+        super(ALBERT, self).__init__()
         
         options_name = 'albert-base-v2'
         self.encoder = AlbertForSequenceClassification.from_pretrained(options_name,num_labels = 4)
