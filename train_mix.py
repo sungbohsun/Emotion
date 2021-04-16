@@ -5,12 +5,13 @@ import wandb
 import argparse
 import warnings
 warnings.filterwarnings("ignore")
+from model import *
 from model_bert import *
 from dataloader import *
 from tqdm import tqdm
 from torch import nn, optim
 from torch.utils.data import ConcatDataset,TensorDataset
-from sklearn.metrics import f1_score,accuracy_score
+from sklearn.metrics import f1_score
 from sklearn.model_selection import StratifiedKFold
 
 def eval_score(all_label,all_prediction,EPT):
@@ -32,6 +33,63 @@ def eval_score(all_label,all_prediction,EPT):
         wandb.log({"val_acc": acc})
     return f1_micro
 
+    
+class MIX(nn.Module):
+
+    def __init__(self,model_cnn,model_lyrics):
+        super(MIX, self).__init__()
+        
+        parms = {'sample_rate':44100,
+         'window_size':1024,
+         'hop_size':320,
+         'mel_bins':64,
+         'fmin':50,
+         'fmax':14000,
+         'classes_num':4 if args.mode == '4Q' else 2}
+        
+        if args.mode == '4Q':
+            model_lyr = eval(model_lyrics+'()')
+        else:
+            model_lyr = eval(model_lyrics+'_TL()')
+        
+        if args.model2 == 'BERT':
+            model_lyr.load_state_dict(torch.load(args.path2))
+            self.lyrics = model_lyr.encoder.bert
+        
+        if args.model2 == 'ALBERT':
+            model_lyr.load_state_dict(torch.load(args.path2))
+            self.lyrics = model_lyr.encoder.albert
+        
+        self.audio  = eval(model_cnn+'(**parms)')
+        
+        if args.model1 == 'Cnn6':
+            self.audio.load_state_dict(torch.load(args.path1))
+        
+        if args.model1 == 'Cnn10':
+            self.audio.load_state_dict(torch.load(args.path1))
+        
+        self.audio.fc_audioset = layer_pass()
+        self.fc1 = nn.Linear(768+512,768+512)
+        self.drop = nn.Dropout(0.5)
+        self.fc2 = nn.Linear(768+512,4)
+    def forward(self,x1,x2):
+        
+#         for param in self.audio.parameters():
+#             param.requires_grad = False
+        
+#         for param in self.lyrics.parameters():
+#             param.requires_grad = False
+        
+        x2 = torch.tensor(x2, dtype=torch.long)
+        out1 = self.audio(x1)['clipwise_output']
+        out2 = self.lyrics(x2)['pooler_output']
+        out = torch.cat((out1,out2),dim=1)
+        out = self.drop(out)
+        out = self.fc1(out)
+        result = self.fc2(out)
+        
+        return result
+    
 def train_class(model,epoch):
     model.train()
     t_loss = 0
@@ -40,17 +98,21 @@ def train_class(model,epoch):
     for batch_idx, (audio,lyrics,target) in tqdm(enumerate(train_loader),total=len(train_loader)):
         target = two_labal(target,args.mode)
         optimizer.zero_grad()
+        audio = audio.to(device)
         lyrics = lyrics.to(device)
         target = target.to(device)
-        loss,output = model(lyrics,target)
+        output = model(audio,lyrics)
+        loss = loss_fn(output, target) #the loss functions expects a batchSizex10 input
         loss.backward()
         optimizer.step()
         t_loss += loss.detach().cpu()
         all_prediction.extend(output.argmax(axis=1).cpu().detach().numpy())
         all_label.extend(target.cpu().detach().numpy())
-        
+    
     wandb.log({"train_loss": t_loss / len(train_loader)})  
     f1 = eval_score(all_label,all_prediction,'train')
+    
+    
     print('Train Epoch {} : train_loss : {:.5f} train_f1 : {:.5f}'.format(epoch,t_loss/len(train_loader),f1),end=' ')
     
 def test_class(model,epoch):
@@ -58,40 +120,46 @@ def test_class(model,epoch):
     t_loss = 0
     all_prediction = []
     all_label = []
-    for audio,lyrics,target in test_loader:
+    for batch_idx, (audio,lyrics,target) in enumerate(test_loader):
         target = two_labal(target,args.mode)
-        #audio = audio[:,0,:].to(device)
-        lyrics = lyrics.to(device) 
+        audio = audio.to(device)
+        lyrics = lyrics.to(device)
         target = target.to(device)
-        loss,output = model(lyrics,target)
+        output = model(audio,lyrics)
+        loss = loss_fn(output, target) #the loss functions expects a batchSizex10 input
         t_loss += loss.detach().cpu()
         all_prediction.extend(output.argmax(axis=1).cpu().detach().numpy())
         all_label.extend(target.cpu().detach().numpy())
         
-    wandb.log({"val_loss": t_loss / len(train_loader)})       
+    wandb.log({"val_loss": t_loss / len(train_loader)})        
     f1 = eval_score(all_label,all_prediction,'test')
     print('val_loss : {0:.5f} val_f1 : {1:.5f}'.format(t_loss / len(test_loader),f1),end=' ')
     return f1
+
 
 if __name__ == '__main__':
     
     
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", help='BERT')
-    parser.add_argument("--bt",    help="batch size",type=int,default=6)
-    parser.add_argument("--data",  help='dataset', default='pqb')
-    parser.add_argument("--mode",  help='Va,Ar',   default='4Q')
+    parser.add_argument("--bt", type=int ,help="batch size",default=2)
+    parser.add_argument("--path1",help='Cnn6')
+    parser.add_argument("--path2",help='BERT')
+    parser.add_argument("--data",help='dataset',default='pqb')
+    parser.add_argument("--mode",  help='Va,Ar',default='4Q')
     args = parser.parse_args()
+    args.model1 = args.path1.split('/')[2].split('_')[2]
+    args.model2 = args.path2.split('/')[2].split('_')[2]
 
     data_size_Bi  = 133 
     data_size_Q4  = 479
     data_size_PME = 629
     #data_size_DEAM = 1802
         
-    if args.model == 'BERT':
+        
+    if args.model2 == 'BERT':
         pretrain_tk = 'bert-base-uncased'
     
-    elif args.model == 'ALBERT':
+    elif args.model2 == 'ALBERT':
         pretrain_tk = 'albert-base-v2'
         
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -130,19 +198,19 @@ if __name__ == '__main__':
         test_loader = DataLoader(test_set, batch_size = args.bt ,shuffle = True, **kwargs)
 
 
-        if args.mode == '4Q':
-            model = eval(args.model+'()')   
-        else:
-            model = eval(args.model+'_TL()')  
-
+        model = MIX(args.model1,args.model2)  
         model.to(device)
-        wandb.init(tags=[args.mode,args.model,str(args.bt)])
-        save_path = 'Lyrics_{}_{}_fold-{}'.format(args.mode,args.model,fold)
+        wandb.init(tags=[args.model1,args.model2,args.size,str(args.bt),args.mode])
+        save_path = 'Lyrics_{}_{}_{}_fold-{}'.format(args.mode,args.model1,args.model2,args.data,fold)
         wandb.run.name = save_path
         wandb.watch(model)
 
-        optimizer = torch.optim.Adam(model.parameters(),lr=2e-5)
+        optimizer = torch.optim.Adam(model.parameters(),lr=1e-4)
         scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 3, gamma=0.95, last_epoch=-1)
+        if args.mode == '4Q':
+            loss_fn = nn.CrossEntropyLoss(weight=torch.Tensor([1,5,2,5]).to(device))
+        else:
+            loss_fn = nn.CrossEntropyLoss(weight=torch.Tensor([1,2]).to(device))
 
         best_f1 = -1
 
