@@ -1,0 +1,1 @@
+CUDA_VISIBLE_DEVICES=1, python train_mix.py --path1 ./model/Audio_4Q_Cnn10_fold-0 --path2 

@@ -81,6 +81,7 @@ if __name__ == '__main__':
     parser.add_argument("--bt",    help="batch size",type=int,default=6)
     parser.add_argument("--data",  help='dataset', default='pqb')
     parser.add_argument("--mode",  help='Va,Ar',   default='4Q')
+    parser.add_argument("--fold",  help='0-4',type=int)
     args = parser.parse_args()
 
     data_size_Bi  = 133 
@@ -103,6 +104,8 @@ if __name__ == '__main__':
     skf = StratifiedKFold(n_splits=5, shuffle=True,random_state=8848)
     skf.get_n_splits(all_set)
     for fold, (train_index, test_index) in enumerate(skf.split(all_set,[y for _,_,y in all_set])):
+        
+        if fold != args.fold: continue
         print('now is in fold',fold)
         
         if  args.data.find('p')>=0:
@@ -149,7 +152,7 @@ if __name__ == '__main__':
         if not os.path.isdir('model/'+save_path):
             os.mkdir('model/'+save_path)
 
-        for epoch in range(1, 300):
+        for epoch in range(1, 30):
             scheduler.step()
             train_class(model,epoch)
             f1 = test_class(model, epoch)

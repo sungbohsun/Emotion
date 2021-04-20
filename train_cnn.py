@@ -83,6 +83,7 @@ if __name__ == '__main__':
     parser.add_argument("--bt",    help="batch size",type=int,default=6)
     parser.add_argument("--data",  help='dataset', default='pqb')
     parser.add_argument("--mode",  help='Va,Ar',   default='4Q')
+    parser.add_argument("--fold",  help='0-4',type=int)
     args = parser.parse_args()
 
     data_size_Bi  = 133 
@@ -108,7 +109,11 @@ if __name__ == '__main__':
     all_set = PMEmix_dataset(list(range(data_size_PME)),pretrain_tk)
     skf = StratifiedKFold(n_splits=5, shuffle=True,random_state=8848)
     skf.get_n_splits(all_set)
+    
     for fold, (train_index, test_index) in enumerate(skf.split(all_set,[y for _,_,y in all_set])):
+        
+        if fold != args.fold: continue
+            
         print('now is in fold',fold)
         
         if  args.data.find('p')>=0:
@@ -145,7 +150,7 @@ if __name__ == '__main__':
 
         model = eval(args.model+'(**parms)')   
         model.to(device)
-        wandb.init(tags=[args.mode,args.model,str(args.bt)])
+        wandb.init(tags=[args.mode,args.model,'bt-'+str(args.bt),'fold-'+str(args.fold)])
         save_path = 'Audio_{}_{}_fold-{}'.format(args.mode,args.model,fold)
         wandb.run.name = save_path
         wandb.watch(model)

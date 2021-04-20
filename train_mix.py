@@ -146,9 +146,14 @@ if __name__ == '__main__':
     parser.add_argument("--path2",help='BERT')
     parser.add_argument("--data",help='dataset',default='pqb')
     parser.add_argument("--mode",  help='Va,Ar',default='4Q')
+    #parser.add_argument("--fold",  help='0-4',type=int)
     args = parser.parse_args()
     args.model1 = args.path1.split('/')[2].split('_')[2]
     args.model2 = args.path2.split('/')[2].split('_')[2]
+    
+    assert args.path1.split('/')[2].split('_')[3][-1] == args.path2.split('/')[2].split('_')[3][-1],'path1 fold != path2 fold'
+    
+    args.fold = int(args.path1.split('/')[2].split('_')[3][-1])
 
     data_size_Bi  = 133 
     data_size_Q4  = 479
@@ -171,6 +176,8 @@ if __name__ == '__main__':
     skf = StratifiedKFold(n_splits=5, shuffle=True,random_state=8848)
     skf.get_n_splits(all_set)
     for fold, (train_index, test_index) in enumerate(skf.split(all_set,[y for _,_,y in all_set])):
+        
+        if fold != args.fold: continue
         print('now is in fold',fold)
         
         if  args.data.find('p')>=0:
