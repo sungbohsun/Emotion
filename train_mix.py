@@ -11,7 +11,7 @@ from dataloader import *
 from tqdm import tqdm
 from torch import nn, optim
 from torch.utils.data import ConcatDataset,TensorDataset
-from sklearn.metrics import f1_score
+from sklearn.metrics import f1_score,accuracy_score
 from sklearn.model_selection import StratifiedKFold
 
 def eval_score(all_label,all_prediction,EPT):
@@ -207,8 +207,8 @@ if __name__ == '__main__':
 
         model = MIX(args.model1,args.model2)  
         model.to(device)
-        wandb.init(tags=[args.model1,args.model2,args.size,str(args.bt),args.mode])
-        save_path = 'Lyrics_{}_{}_{}_fold-{}'.format(args.mode,args.model1,args.model2,args.data,fold)
+        wandb.init(tags=[args.mode,args.model1,args.model2,'bt-'+str(args.bt),'fold-'+str(args.fold)])
+        save_path = 'MIX_{}_{}_{}_fold-{}'.format(args.mode,args.model1,args.model2,fold)
         wandb.run.name = save_path
         wandb.watch(model)
 

@@ -139,7 +139,7 @@ if __name__ == '__main__':
             model = eval(args.model+'_TL()')  
 
         model.to(device)
-        wandb.init(tags=[args.mode,args.model,str(args.bt)])
+        wandb.init(tags=[args.mode,args.model,'bt-'+str(args.bt),'fold-'+str(args.fold)])
         save_path = 'Lyrics_{}_{}_fold-{}'.format(args.mode,args.model,fold)
         wandb.run.name = save_path
         wandb.watch(model)
