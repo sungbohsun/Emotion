@@ -36,6 +36,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
     
     args.model1 = args.path.split('/')[-2].split('_')[2]
+    args.fold   = args.path.split('/')[2].split('_')[3][-1]
+    
     print('--- use Cnn model without lyrics ---')
     pretrain_tk = 'bert-base-uncased'
         
@@ -45,7 +47,7 @@ if __name__ == '__main__':
     skf = StratifiedKFold(n_splits=5, shuffle=True,random_state=8848)
     skf.get_n_splits(all_set)
     for fold, (train_index, test_index) in enumerate(skf.split(all_set,[y for _,_,y in all_set])):
-        
+        if fold != int(args.fold): continue
         print('now is in fold',fold)
         test_set = PMEmix_dataset(test_index,pretrain_tk)
         kwargs = {'num_workers': 5, 'pin_memory': True} if device == 'cuda' else {} #needed for using datasets on gpu

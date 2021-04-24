@@ -82,6 +82,7 @@ if __name__ == '__main__':
     parser.add_argument("--data",  help='dataset', default='pqb')
     parser.add_argument("--mode",  help='Va,Ar',   default='4Q')
     parser.add_argument("--fold",  help='0-4',type=int)
+    parser.add_argument("--CV",    help='PME,ALL',default='PME')
     args = parser.parse_args()
 
     data_size_Bi  = 133 
@@ -100,64 +101,115 @@ if __name__ == '__main__':
     train_sets = []
     test_sets  = []
     
-    all_set = PMEmix_dataset(list(range(data_size_PME)),pretrain_tk)
-    skf = StratifiedKFold(n_splits=5, shuffle=True,random_state=8848)
-    skf.get_n_splits(all_set)
-    for fold, (train_index, test_index) in enumerate(skf.split(all_set,[y for _,_,y in all_set])):
-        
-        if fold != args.fold: continue
-        print('now is in fold',fold)
-        
-        if  args.data.find('p')>=0:
-            print('-------- load Lyr_PME')
-            PME_train_set = PMEmix_dataset(train_index,pretrain_tk)
-            PME_test_set = PMEmix_dataset(test_index,pretrain_tk)
-            train_sets.append(PME_train_set)
-            test_sets.append(PME_test_set)
+    if args.CV == 'PME' :
+        print('CV in PMEmo')
+        all_set = PMEmix_dataset(list(range(data_size_PME)),pretrain_tk)
+        skf = StratifiedKFold(n_splits=5, shuffle=True,random_state=8848)
+        skf.get_n_splits(all_set)
 
-        if  args.data.find('q')>=0:
-            print('-------- load Lyr_Q4')
-            Q4_train_set = Q4mix_dataset(list(range(data_size_Q4)),pretrain_tk)
-            train_sets.append(Q4_train_set)
+        for fold, (train_index, test_index) in enumerate(skf.split(all_set,[y for _,_,y in all_set])):
 
-        if  args.data.find('b')>=0:
-            print('-------- load Bi')
-            Q4_train_set = Bimix_dataset(list(range(data_size_Bi)),pretrain_tk)
-            train_sets.append(Q4_train_set)
+            if fold != args.fold: continue
 
-        train_set = ConcatDataset(train_sets)
-        test_set = ConcatDataset(test_sets)
+            print('now is in fold',fold)
 
-        kwargs = {'num_workers': 5, 'pin_memory': True} if device == 'cuda' else {} #needed for using datasets on gpu
-        train_loader = DataLoader(train_set, batch_size = args.bt,shuffle = True, **kwargs)
-        test_loader = DataLoader(test_set, batch_size = args.bt ,shuffle = True, **kwargs)
+            if  args.data.find('p')>=0:
+                print('-------- load Lyr_PME')
+                PME_train_set = PMEmix_dataset(train_index,pretrain_tk)
+                PME_test_set = PMEmix_dataset(test_index,pretrain_tk)
+                train_sets.append(PME_train_set)
+                test_sets.append(PME_test_set)
+
+            if  args.data.find('q')>=0:
+                print('-------- load Lyr_Q4')
+                Q4_train_set = Q4mix_dataset(list(range(data_size_Q4)),pretrain_tk)
+                train_sets.append(Q4_train_set)
+
+            if  args.data.find('b')>=0:
+                print('-------- load Bi')
+                Bi_train_set = Bimix_dataset(list(range(data_size_Bi)),pretrain_tk)
+                train_sets.append(Bi_train_set)
+
+    elif args.CV == 'ALL' :
+        print('CV in ALL data')
+        all_set = PMEmix_dataset(list(range(data_size_PME)),pretrain_tk)
+        skf = StratifiedKFold(n_splits=5, shuffle=True,random_state=8848)
+        skf.get_n_splits(all_set)
+
+        for fold, (train_index, test_index) in enumerate(skf.split(all_set,[y for _,_,y in all_set])):
+
+            if fold != args.fold: continue
+
+            print('now is in fold',fold)
+
+            if  args.data.find('p')>=0:
+                print('-------- load Lyr_PME')
+                PME_train_set = PMEmix_dataset(train_index,pretrain_tk)
+                PME_test_set = PMEmix_dataset(test_index,pretrain_tk)
+                train_sets.append(PME_train_set)
+                test_sets.append(PME_test_set)
+
+        all_set = Q4mix_dataset(list(range(data_size_Q4)),pretrain_tk)
+        skf = StratifiedKFold(n_splits=5, shuffle=True,random_state=8848)
+        skf.get_n_splits(all_set)
+
+        for fold, (train_index, test_index) in enumerate(skf.split(all_set,[y for _,_,y in all_set])):
+
+            if fold != args.fold: continue      
+            if  args.data.find('q')>=0:
+                print('-------- load Lyr_Q4')
+                Q4_train_set = Q4mix_dataset(train_index,pretrain_tk)
+                Q4_test_set = Q4mix_dataset(test_index,pretrain_tk)               
+                train_sets.append(Q4_train_set)
+                test_sets.append(Q4_test_set)
+
+        all_set = Bimix_dataset(list(range(data_size_Bi)),pretrain_tk)
+        skf = StratifiedKFold(n_splits=5, shuffle=True,random_state=8848)
+        skf.get_n_splits(all_set)
+
+        for fold, (train_index, test_index) in enumerate(skf.split(all_set,[y for _,_,y in all_set])):
+
+            if fold != args.fold: continue
+            if  args.data.find('b')>=0:
+                print('-------- load Bi')
+                Bi_train_set = Bimix_dataset(train_index,pretrain_tk)
+                Bi_test_set = Bimix_dataset(test_index,pretrain_tk)               
+                train_sets.append(Bi_train_set)
+                test_sets.append(Bi_test_set)
+
+    train_set = ConcatDataset(train_sets)
+    test_set = ConcatDataset(test_sets)
+
+    kwargs = {'num_workers': 5, 'pin_memory': True} if device == 'cuda' else {} #needed for using datasets on gpu
+    train_loader = DataLoader(train_set, batch_size = args.bt,shuffle = True, **kwargs)
+    test_loader = DataLoader(test_set, batch_size = args.bt ,shuffle = True, **kwargs)
 
 
-        if args.mode == '4Q':
-            model = eval(args.model+'()')   
-        else:
-            model = eval(args.model+'_TL()')  
+    if args.mode == '4Q':
+        model = eval(args.model+'()')   
+    else:
+        model = eval(args.model+'_TL()')  
 
-        model.to(device)
-        wandb.init(tags=[args.mode,args.model,'bt-'+str(args.bt),'fold-'+str(args.fold)])
-        save_path = 'Lyrics_{}_{}_fold-{}'.format(args.mode,args.model,fold)
-        wandb.run.name = save_path
-        wandb.watch(model)
+    model.to(device)
+    wandb.init(tags=[args.CV,args.mode,args.model,'bt-'+str(args.bt),'fold-'+str(args.fold)])
+    save_path = '{}-Lyrics_{}_{}_fold-{}'.format(args.CV,args.mode,args.model,args.fold)
+    wandb.run.name = save_path
+    wandb.watch(model)
 
-        optimizer = torch.optim.Adam(model.parameters(),lr=2e-5)
-        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 3, gamma=0.95, last_epoch=-1)
+    optimizer = torch.optim.Adam(model.parameters(),lr=2e-5)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 3, gamma=0.95, last_epoch=-1)
 
-        best_f1 = -1
+    best_f1 = -1
 
-        if not os.path.isdir('model/'+save_path):
-            os.mkdir('model/'+save_path)
+    if not os.path.isdir('model/'+save_path):
+        os.mkdir('model/'+save_path)
 
-        for epoch in range(1, 30):
-            scheduler.step()
-            train_class(model,epoch)
-            f1 = test_class(model, epoch)
-            wandb.log({"lr": scheduler.get_last_lr()[0]})
-            print('lr: {:.8f}'.format(scheduler.get_last_lr()[0]))
-            if f1 > best_f1:
-                best_f1 = f1
-                torch.save(model.state_dict(),'model/'+save_path+'/best_net.pt')
+    for epoch in range(1, 30):
+        scheduler.step()
+        train_class(model,epoch)
+        f1 = test_class(model, epoch)
+        wandb.log({"lr": scheduler.get_last_lr()[0]})
+        print('lr: {:.8f}'.format(scheduler.get_last_lr()[0]))
+        if f1 > best_f1:
+            best_f1 = f1
+            torch.save(model.state_dict(),'model/'+save_path+'/best_net.pt')
